@@ -1,0 +1,174 @@
+CREATE DATABASE EXCELR_PROJECT;
+
+SET GLOBAL local_infile = 1;
+
+create table seller_dataset(seller_id varchar(50),seller_zip_code_prefix int,seller_city varchar(40),seller_state char(10));
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/seller_dataset.csv'
+INTO TABLE seller_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+create table products_dataset(product_id varchar(50),product_category_name	varchar(20),product_name_lenght int,product_description_lenght int,product_photos_qty int,product_weight_g	int, product_length_cm	int,product_height_cm	int,product_width_cm int);
+drop table products_dataset;
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/Products_dataset.csv'
+INTO TABLE products_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+select count(product_id) from products_dataset;
+
+create table product_category_name(product_category_name varchar(50),product_category_name_english varchar(60));
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/product_category_name.csv'
+INTO TABLE product_category_name
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+
+create table payments_dataset(order_id	varchar(50),payment_sequential int,	payment_type varchar(50),payment_installments int,payment_value float);
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/payments_dataset.csv'
+INTO TABLE payments_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+
+create table orders_dataset(order_id varchar(50),customer_id varchar(50),order_status char(30),order_purchase_timestamp	timestamp,order_approved_at timestamp,
+order_delivered_carrier_date timestamp,order_delivered_customer_date timestamp,order_estimated_delivery_date timestamp);
+drop table orders_dataset;
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/orders_dataset.csv'
+INTO TABLE orders_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+create table order_review_dataset(review_id	varchar(50),order_id varchar(50),review_score int,review_comment_title varchar(50),review_comment_message varchar(50),
+review_creation_date timestamp,	review_answer_timestamp timestamp);
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/order_review_dataset.csv'
+INTO TABLE order_review_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+create table order_items(order_id varchar(50),order_item_id	int,product_id varchar(50),seller_id varchar(50),shipping_limit_date timestamp,	price float,freight_value float);
+
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/order_items.csv'
+INTO TABLE order_items
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+create table Olist_customers_dataset(customer_id varchar(50),customer_unique_id varchar(50),customer_zip_code_prefix int,customer_city char(40),customer_state char(20));
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/olist_customers_dataset.csv'
+INTO TABLE Olist_customers_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+create table geolocation_dataset(geolocation_zip_code_prefix int,geolocation_lat float,	geolocation_lng float,	geolocation_city char(90),	geolocation_state char(10));
+drop table geolocation_dataset;
+
+LOAD DATA LOCAL INFILE 'C:/Users/muska/OneDrive/Desktop/ECOMMERCE/geolocation_dataset.csv'
+INTO TABLE geolocation_dataset
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+
+#TOTAL REVENUE
+select concat("R$",round(sum(payment_value)/1000000,2),"M") as TOTAL_REVENUE from payments_dataset;
+
+#AVERAGE PAYMENT FROM SAO PAULO CITY
+select concat("R$",round(avg(payments.payment_value),2))  as AVERAGE_PAYMENT from
+ payments_dataset as payments left join orders_dataset as orders on payments.order_id=orders.order_id left join 
+ olist_customers_dataset as customers on orders.customer_id=customers.customer_id where customer_city="sao paulo";
+ 
+#AVERAGE ITEM PRICE IN SAO PAULO CITY
+select concat("R$",round(avg(items.price),2)) as ITEM_PRICE from order_items as items left join orders_dataset as orders on items.order_id=orders.order_id
+ left join olist_customers_dataset as customers on orders.customer_id=customers.customer_id where customers.customer_city="sao paulo";
+ 
+#5 STAR CREDIT-CARD ORDERS
+select count(distinct pay.order_id) as five_star_credit_card_orders from
+payments_dataset as pay left join order_review_dataset as oreview on  pay.order_id=oreview.order_id where pay.payment_type='credit_card' and oreview.review_score='5';
+
+#review as 5 in comparision to all payments types
+select pay.payment_type ,count(distinct pay.order_id) as five_reviewscore_credit_card_orders from
+payments_dataset as pay left join order_review_dataset as oreview on  pay.order_id=oreview.order_id  where oreview.review_score='5'
+group by payment_type order by five_reviewscore_credit_card_orders desc;
+
+#Average delivery days for pet_shop
+SELECT pcn.product_category_name_english as Product, ROUND(AVG(DATEDIFF(o.order_delivered_customer_date,o.order_purchase_timestamp)),2) AS AVG_DELIVERY_DAYS from 
+product_category_name as pcn left join products_dataset pr on pcn.product_category_name=pr.product_category_name 
+ left join order_items as i on pr.product_id=i.product_id
+ left join orders_dataset as o on  i.order_id=o.order_id 
+ where  pcn.product_category_name="PET_SHOP" group by pcn.product_category_name_english;
+ 
+ #WEEKDAY VS WEEKEND PAYMENT STATISTICS
+ SELECT
+CONCAT("R$ ",ROUND(SUM( CASE WHEN DAYOFWEEK(orders.order_purchase_timestamp) IN (1, 7) THEN pay.payment_value ELSE 0 END) / 1000000, 2), 'M') AS WEEKEND_PAYMENTS,
+CONCAT("R$ ",ROUND(SUM(CASE WHEN DAYOFWEEK(orders.order_purchase_timestamp) NOT IN (1, 7) THEN pay.payment_value ELSE 0 END) / 1000000, 2), 'M') AS WEEKDAY_PAYMENTS
+FROM payments_dataset AS pay
+LEFT JOIN orders_dataset AS orders
+ON pay.order_id = orders.order_id;
+
+select 
+WEEKEND.payment_type,WEEKEND.TOTAL_PAYMENTS_ON_WEEKENDS,WEEKKDAY.TOTAL_PAYMENTS_ON_WEEKDAYS,
+CASE
+WHEN WEEKEND.TOTAL_PAYMENTS_ON_WEEKENDS > WEEKKDAY.TOTAL_PAYMENTS_ON_WEEKDAYS THEN 'WeekEND Payments are Higher'
+WHEN WEEKEND.TOTAL_PAYMENTS_ON_WEEKENDS < WEEKKDAY.TOTAL_PAYMENTS_ON_WEEKDAYS THEN 'WeekDAY Payments are Higher'
+ELSE 'Both are Equal'
+END AS PAYMENT_COMPARISON
+from 
+(select pay.payment_type,CONCAT(ROUND(SUM(PAY.PAYMENT_VALUE ) / 10000, 2), 'M')  as TOTAL_PAYMENTS_ON_WEEKENDS from
+ payments_dataset as pay left join orders_dataset as orders on pay.order_id=orders.order_id 
+ where DAYOFWEEK(orders.order_purchase_timestamp) IN (1, 7) group by pay.payment_type ) as weekend
+inner join
+(select pay.payment_type, CONCAT(ROUND(SUM(PAY.PAYMENT_VALUE ) / 10000, 2), 'M') AS  TOTAL_PAYMENTS_ON_WEEKDAYS from payments_dataset as pay left join orders_dataset as orders on pay.order_id=orders.order_id 
+ where DAYOFWEEK(orders.order_purchase_timestamp) NOT IN (1, 7) group by pay.payment_type ) as weekkday
+ on weekend.payment_type=weekkday.payment_type ORDER BY WEEKEND.TOTAL_PAYMENTS_ON_WEEKENDS,WEEKKDAY.TOTAL_PAYMENTS_ON_WEEKDAYS DESC;
+
+#Relationship between shipping days (order_delivered_customer_date - order_purchase_timestamp) Vs review scores.
+select  ROUND(avg(DATEDIFF(orders.order_delivered_customer_date,orders.order_purchase_timestamp)), 2) AS SHIPPING_DAYS,reviews.review_score  from 
+orders_dataset as orders left join order_review_dataset as reviews on orders.order_id=reviews.order_id WHERE orders.order_delivered_customer_date IS NOT NULL AND reviews.review_score IS NOT NULL
+group by reviews.review_score order by SHIPPING_DAYS;
+
+#TOTAL REVENUE OVER TIME
+ SELECT YEAR(ORDERS.order_purchase_timestamp) AS YEAR_DATE,CONCAT("R$",ROUND(SUM(ITEMS.PRICE)/1000000,2),"M")  AS REVENUE FROM 
+ order_items AS ITEMS INNER JOIN orders_dataset AS ORDERS ON ITEMS.ORDER_ID=ORDERS.order_id
+ GROUP BY YEAR_DATE ORDER BY revenue;
+ 
+ #TOP 10 CATEGORIES BY REVENUE
+SELECT pcn.product_category_name_english,concat(round(sum(items.price)/1000000,4),"M") as revenue FROM  product_category_name AS PCN LEFT JOIN products_dataset as products on pcn.product_category_name=products.product_category_name
+left join order_items as items on products.product_id=items.product_id  group by pcn.product_category_name_english order by revenue desc limit 10;
+
+ #SALES BY PAYMENT METHOD
+ SELECT PAYMENTS.payment_type AS PAYMENT_METHOD,
+    ROUND(
+        SUM(ITEMS.PRICE) * 100/
+        SUM(SUM(ITEMS.PRICE)) OVER(), 2
+    ) AS percentage
+ FROM payments_dataset AS PAYMENTS LEFT JOIN order_items AS ITEMS ON PAYMENTS.order_id=ITEMS.order_id WHERE PAYMENTS.payment_type IS NOT NULL
+ GROUP BY PAYMENT_METHOD order by percentage desc ;
+ 
+ 
+
+ 
+ 

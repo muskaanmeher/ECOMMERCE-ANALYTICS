@@ -1,2 +1,3 @@
 # ECOMMERCE-ANALYTICS
-Analysis of 100K+ Brazilian e-commerce orders from Olist, covering sales trends, product categories, payments, delivery performance, and customer reviews to uncover insights for business and logistics improvement
+This project analyzes real-world e-commerce data from Olist, a Brazilian marketplace that connects small businesses to customers across the country. The dataset contains roughly 100,000 orders placed between 2016 and 2018, covering customers, sellers, products, payments, reviews, shipping, and geolocation.
+The analysis explores sales trends over time, top-performing product categories, payment preferences, delivery performance versus estimated dates, and how delivery delays affect customer review scores. It also looks at geographic patterns in customers and sellers across Brazilian states, offering insights that can help improve logistics, seller performance, and customer satisfaction.
